@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  OPERATOR
+  SUPPORT
+  DRIVER
+  PASSENGER
+}
+
+enum DriverStatusType {
+  OFFLINE
+  ONLINE
+  BUSY
+  ON_BREAK
+}
+
+enum RideStatus {
+  requested
+  searching
+  driver_assigned
+  in_progress
+  completed
+  cancelled
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String?  @unique
+  phone     String   @unique
+  passwordHash String
+  role      UserRole @default(PASSENGER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  driver    Driver?
+  passenger Passenger?
+}
+
+model Driver {
+  id            String           @id @default(uuid())
+  userId        String           @unique
+  status        DriverStatusType @default(OFFLINE)
+  currentRideId String?
+  isBlocked     Boolean          @default(false)
+  active        Boolean          @default(true)
+  rating        Float?
+  lastLat       Float?
+  lastLng       Float?
+  lastAccuracy  Float?
+  lastLocationAt DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  user          User             @relation(fields: [userId], references: [id])
+  rides         Ride[]           @relation("DriverRides")
+}
+
+model Passenger {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  lastLat   Float?
+  lastLng   Float?
+  lastAccuracy Float?
+  lastLocationAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id])
+  rides     Ride[]
+}
+
+model Ride {
+  id                     String      @id @default(uuid())
+  passengerId            String
+  driverId               String?
+  status                 RideStatus
+  version                Int         @default(1)
+  pickupLat              Float
+  pickupLng              Float
+  dropoffLat             Float
+  dropoffLng             Float
+  driverLocationLat      Float?
+  driverLocationLng      Float?
+  driverLocationAccuracy Float?
+  driverLocationTimestamp DateTime?
+  createdAt              DateTime    @default(now())
+  startedAt              DateTime?
+  finishedAt             DateTime?
+  cancelledAt            DateTime?
+  lastStatusUpdate       DateTime
+  cancelReason           String?
+  notes                  String?
+
+  passenger Passenger @relation(fields: [passengerId], references: [id])
+  driver    Driver?    @relation("DriverRides", fields: [driverId], references: [id])
+  statusHistory RideStatusHistory[]
+
+  @@index([status])
+  @@index([driverId])
+  @@index([passengerId])
+}
+
+model RideStatusHistory {
+  id         String   @id @default(uuid())
+  rideId     String
+  status     RideStatus
+  timestamp  DateTime
+  changedBy  String?
+  reason     String?
+
+  ride       Ride     @relation(fields: [rideId], references: [id])
+
+  @@index([rideId])
+  @@index([timestamp])
+}
+
+model Admin {
+  id           String           @id @default(uuid())
+  email        String           @unique
+  passwordHash String
+  role         String
+  isActive     Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  sessions     AdminSession[]
+  auditLogs    AdminAuditLog[]
+}
+
+model AdminSession {
+  id        String   @id @default(uuid())
+  adminId   String
+  admin     Admin    @relation(fields: [adminId], references: [id])
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+
+  @@index([adminId])
+  @@index([expiresAt])
+  @@index([revoked])
+}
+
+model AdminAuditLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  admin      Admin    @relation(fields: [adminId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  beforeJson Json?
+  afterJson  Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([adminId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model AdminLoginAttempt {
+  id        String   @id @default(uuid())
+  email     String
+  ipAddress String?
+  userAgent String?
+  success   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([createdAt])
+}

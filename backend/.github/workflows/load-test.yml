@@ -1,0 +1,83 @@
+name: Load Testing
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to test'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      duration:
+        description: 'Test duration (e.g., 5m, 10m)'
+        required: false
+        default: '5m'
+      vus:
+        description: 'Virtual users'
+        required: false
+        default: '50'
+
+jobs:
+  load-test:
+    name: Run Load Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Set environment URL
+        id: env-url
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "production" ]; then
+            echo "url=https://api.voudemoto.com" >> $GITHUB_OUTPUT
+          else
+            echo "url=https://staging.voudemoto.com" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run k6 load test
+        run: |
+          k6 run \
+            --vus ${{ github.event.inputs.vus }} \
+            --duration ${{ github.event.inputs.duration }} \
+            --out json=load-test-results.json \
+            -e BASE_URL=${{ steps.env-url.outputs.url }} \
+            tests/load/api-test.js
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: load-test-results
+          path: load-test-results.json
+
+      - name: Analyze results
+        run: |
+          echo "## Load Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Environment: ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "Duration: ${{ github.event.inputs.duration }}" >> $GITHUB_STEP_SUMMARY
+          echo "VUs: ${{ github.event.inputs.vus }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          k6 inspect load-test-results.json >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on Slack
+        uses: 8398a7/action-slack@v3
+        if: always()
+        with:
+          status: ${{ job.status }}
+          text: |
+            Load test completed on ${{ github.event.inputs.environment }}
+            Duration: ${{ github.event.inputs.duration }}
+            VUs: ${{ github.event.inputs.vus }}
+            Status: ${{ job.status }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}

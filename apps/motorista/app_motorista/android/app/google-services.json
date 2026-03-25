@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "744431531515",
+    "project_id": "voudemoto-96945",
+    "storage_bucket": "voudemoto-96945.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:744431531515:android:17a11e91b34cd1b1a2475e",
+        "android_client_info": {
+          "package_name": "com.example.app_motorista"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "744431531515-147al6lq3krgf1ckv33c1r2enou7ssgb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQdR-PZGmWhfgTJrhtktnzD_XaxVxiJbU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "744431531515-147al6lq3krgf1ckv33c1r2enou7ssgb.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:744431531515:android:ee6c2762b689f0d3a2475e",
+        "android_client_info": {
+          "package_name": "com.example.app_passageiro"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "744431531515-147al6lq3krgf1ckv33c1r2enou7ssgb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQdR-PZGmWhfgTJrhtktnzD_XaxVxiJbU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "744431531515-147al6lq3krgf1ckv33c1r2enou7ssgb.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

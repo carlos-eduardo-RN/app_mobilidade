@@ -1,0 +1,59 @@
+# =========================
+# NODE
+# =========================
+node_modules
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# =========================
+# ENV
+# =========================
+.env
+.env.local
+.env.development
+.env.production
+
+# =========================
+# FLUTTER
+# =========================
+.dart_tool
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache
+.pub
+
+# =========================
+# FLUTTER BUILD
+# =========================
+build
+**/build
+**/.dart_tool
+
+# =========================
+# ANDROID
+# =========================
+android/.gradle
+android/local.properties
+android/app/build
+
+# =========================
+# IOS (caso adicione depois)
+# =========================
+ios/Pods
+ios/.symlinks
+ios/Flutter/Flutter.framework
+
+# =========================
+# IDE
+# =========================
+.vscode
+.idea
+*.iml
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db

@@ -1,0 +1,105 @@
+---
+# Staging Issuer (para testes)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    # Servidor ACME staging
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    
+    # Email para notificações
+    email: devops@voudemoto.com
+    
+    # Secret para armazenar chave privada
+    privateKeySecretRef:
+      name: letsencrypt-staging
+    
+    # Solvers HTTP-01
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+---
+# Production Issuer
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    # Servidor ACME production
+    server: https://acme-v02.api.letsencrypt.org/directory
+    
+    # Email para notificações
+    email: devops@voudemoto.com
+    
+    # Secret para armazenar chave privada
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    
+    # Solvers HTTP-01
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+      
+      # DNS-01 solver para wildcards (opcional)
+      - dns01:
+          route53:
+            region: us-east-1
+            # Role ARN para autenticação AWS
+            # roleARN: arn:aws:iam::ACCOUNT_ID:role/cert-manager
+        selector:
+          dnsZones:
+            - "voudemoto.com"
+---
+# Certificado para domínio principal
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: voudemoto-tls
+  namespace: voudemoto
+spec:
+  secretName: voudemoto-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - api.voudemoto.com
+    - www.voudemoto.com
+  duration: 2160h # 90 dias
+  renewBefore: 360h # 15 dias antes
+---
+# Certificado para Grafana
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: grafana-tls
+  namespace: monitoring
+spec:
+  secretName: grafana-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - grafana.voudemoto.com
+  duration: 2160h
+  renewBefore: 360h
+---
+# Certificado para Jaeger
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: jaeger-tls
+  namespace: monitoring
+spec:
+  secretName: jaeger-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - jaeger.voudemoto.com
+  duration: 2160h
+  renewBefore: 360h

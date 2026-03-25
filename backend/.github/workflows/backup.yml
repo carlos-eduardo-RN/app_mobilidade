@@ -1,0 +1,103 @@
+name: Backup Database
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to backup'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  backup:
+    name: Backup Database
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Set environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+          else
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get database credentials
+        id: db-secrets
+        run: |
+          SECRET=$(aws secretsmanager get-secret-value --secret-id voudemoto/${{ steps.env.outputs.environment }}/database --query SecretString --output text)
+          echo "::add-mask::$SECRET"
+          echo "host=$(echo $SECRET | jq -r .host)" >> $GITHUB_OUTPUT
+          echo "database=$(echo $SECRET | jq -r .database)" >> $GITHUB_OUTPUT
+          echo "username=$(echo $SECRET | jq -r .username)" >> $GITHUB_OUTPUT
+          echo "password=$(echo $SECRET | jq -r .password)" >> $GITHUB_OUTPUT
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Create backup
+        env:
+          PGPASSWORD: ${{ steps.db-secrets.outputs.password }}
+        run: |
+          BACKUP_FILE="voudemoto-${{ steps.env.outputs.environment }}-$(date +%Y%m%d-%H%M%S).sql.gz"
+          pg_dump \
+            -h ${{ steps.db-secrets.outputs.host }} \
+            -U ${{ steps.db-secrets.outputs.username }} \
+            -d ${{ steps.db-secrets.outputs.database }} \
+            --no-owner --no-acl \
+            | gzip > $BACKUP_FILE
+          echo "BACKUP_FILE=$BACKUP_FILE" >> $GITHUB_ENV
+
+      - name: Upload to S3
+        run: |
+          aws s3 cp ${{ env.BACKUP_FILE }} s3://voudemoto-backups/${{ steps.env.outputs.environment }}/$(date +%Y/%m)/${{ env.BACKUP_FILE }}
+          echo "✅ Backup uploaded to S3"
+
+      - name: Cleanup old backups (keep last 30 days)
+        run: |
+          CUTOFF_DATE=$(date -d "30 days ago" +%Y-%m-%d)
+          aws s3 ls s3://voudemoto-backups/${{ steps.env.outputs.environment }}/ --recursive | \
+            awk '{print $4}' | \
+            while read file; do
+              FILE_DATE=$(echo $file | grep -oP '\d{8}' | head -1)
+              FILE_DATE_FORMATTED=$(date -d "${FILE_DATE:0:4}-${FILE_DATE:4:2}-${FILE_DATE:6:2}" +%Y-%m-%d)
+              if [[ "$FILE_DATE_FORMATTED" < "$CUTOFF_DATE" ]]; then
+                aws s3 rm s3://voudemoto-backups/$file
+                echo "Deleted old backup: $file"
+              fi
+            done
+
+      - name: Verify backup
+        run: |
+          BACKUP_SIZE=$(aws s3 ls s3://voudemoto-backups/${{ steps.env.outputs.environment }}/$(date +%Y/%m)/${{ env.BACKUP_FILE }} --summarize | grep "Total Size" | awk '{print $3}')
+          if [ "$BACKUP_SIZE" -lt "1000" ]; then
+            echo "❌ Backup file is too small, possible corruption"
+            exit 1
+          fi
+          echo "✅ Backup verification passed (Size: $BACKUP_SIZE bytes)"
+
+      - name: Notify on Slack
+        uses: 8398a7/action-slack@v3
+        if: always()
+        with:
+          status: ${{ job.status }}
+          text: |
+            Database backup completed for ${{ steps.env.outputs.environment }}
+            File: ${{ env.BACKUP_FILE }}
+            Status: ${{ job.status }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}

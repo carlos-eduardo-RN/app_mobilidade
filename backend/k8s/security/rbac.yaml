@@ -1,0 +1,170 @@
+---
+# Role: Backend - Acesso a secrets e configmaps
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: voudemoto-backend
+  namespace: voudemoto
+rules:
+  # Secrets (somente leitura)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list"]
+    resourceNames:
+      - "voudemoto-secrets"
+      - "database-credentials"
+      - "redis-credentials"
+      - "mongodb-credentials"
+  
+  # ConfigMaps (somente leitura)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+    resourceNames:
+      - "voudemoto-config"
+      - "security-context"
+---
+# Role: Monitoring - Acesso para métricas
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: voudemoto-monitoring
+rules:
+  # Pods (leitura para service discovery)
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  
+  # Nodes (leitura para métricas)
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/proxy"]
+    verbs: ["get", "list", "watch"]
+  
+  # Métricas
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]
+---
+# ClusterRole: Read-only para equipe de desenvolvimento
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: voudemoto-developer
+rules:
+  # Pods (somente leitura)
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+  
+  # Deployments, Services (somente leitura)
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+  
+  - apiGroups: [""]
+    resources: ["services", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  
+  # Secrets (NEGADO - sem acesso)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: []
+  
+  # Logs
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list"]
+---
+# ClusterRole: Admin para equipe DevOps
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: voudemoto-devops
+rules:
+  # Acesso total ao namespace voudemoto
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+---
+# RoleBinding: Backend ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: voudemoto-backend-binding
+  namespace: voudemoto
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: voudemoto-backend
+subjects:
+  - kind: ServiceAccount
+    name: voudemoto-backend
+    namespace: voudemoto
+---
+# ClusterRoleBinding: Prometheus para monitoring
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: voudemoto-monitoring-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: voudemoto-monitoring
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: monitoring
+---
+# RoleBinding: Developers (read-only)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: voudemoto-developer-binding
+  namespace: voudemoto
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: voudemoto-developer
+subjects:
+  # Adicionar usuários/grupos do IAM ou AD
+  - kind: User
+    name: "developer@voudemoto.com"
+    apiGroup: rbac.authorization.k8s.io
+  - kind: Group
+    name: "developers"
+    apiGroup: rbac.authorization.k8s.io
+---
+# ClusterRoleBinding: DevOps (admin)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: voudemoto-devops-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: voudemoto-devops
+subjects:
+  - kind: User
+    name: "devops@voudemoto.com"
+    apiGroup: rbac.authorization.k8s.io
+  - kind: Group
+    name: "devops"
+    apiGroup: rbac.authorization.k8s.io
+---
+# ServiceAccount: Backend
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: voudemoto-backend
+  namespace: voudemoto
+  labels:
+    app: backend
+---
+# ServiceAccount: Monitoring (Prometheus)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: monitoring
+  labels:
+    app: prometheus

@@ -1,0 +1,58 @@
+{
+  "name": "vouddemoto-backend",
+  "version": "1.0.0",
+  "description": "Backend central para sistema de corridas (Uber/99-like)",
+  "main": "dist/backend/src/index.js",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "build": "node -e \"require('fs').rmSync('dist',{ recursive: true, force: true })\" && tsc",
+    "start": "node dist/backend/src/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "seed": "ts-node scripts/seed-admin.ts",
+    "seed:users": "ts-node scripts/seed-users.ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src --ext .ts"
+  },
+  "keywords": [
+    "ride-sharing",
+    "mobility",
+    "backend",
+    "distributed-systems"
+  ],
+  "author": "VouDeMoto Team",
+  "license": "MIT",
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@prisma/client": "^6.4.1",
+    "@sentry/node": "^10.37.0",
+    "@sentry/tracing": "^7.120.4",
+    "@types/ioredis": "^4.28.10",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "firebase-admin": "^13.6.0",
+    "ioredis": "^5.9.2",
+    "uuid": "^9.0.1",
+    "winston": "^3.19.0",
+    "winston-daily-rotate-file": "^4.7.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/express": "^4.17.25",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20.19.33",
+    "@types/uuid": "^9.0.8",
+    "@types/ws": "^8.5.12",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.1",
+    "jest": "^29.7.0",
+    "prisma": "^6.4.1",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

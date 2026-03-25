@@ -1,0 +1,90 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: voudemoto-postgres
+    environment:
+      POSTGRES_DB: voudemoto
+      POSTGRES_USER: voudemoto
+      POSTGRES_PASSWORD: dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voudemoto"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - voudemoto-network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: voudemoto-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - voudemoto-network
+
+  # MongoDB
+  mongodb:
+    image: mongo:4.4
+    container_name: voudemoto-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: dev_password
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - voudemoto-network
+
+  # Backend API (DEV MODE)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: voudemoto-backend
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+
+      DATABASE_URL: postgresql://voudemoto:dev_password@postgres:5432/voudemoto
+      REDIS_URL: redis://redis:6379
+      MONGODB_URL: mongodb://admin:dev_password@mongodb:27017/voudemoto?authSource=admin
+
+      JWT_SECRET: dev_jwt_secret_32_chars_minimum
+      JWT_REFRESH_SECRET: dev_jwt_refresh_secret_32_chars_minimum
+
+    ports:
+      - "3000:3000"
+
+    depends_on:
+      - postgres
+      - redis
+      - mongodb
+
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+    networks:
+      - voudemoto-network
+
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  mongodb_data:
+
+networks:
+  voudemoto-network:
+    driver: bridge

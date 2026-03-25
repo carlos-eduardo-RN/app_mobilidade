@@ -1,0 +1,36 @@
+# Ignore build artifacts
+dist/
+build/
+*.log
+npm-debug.log*
+
+# Ignore node_modules (will be installed in container)
+node_modules/
+
+# Ignore test files
+tests/
+*.test.ts
+*.spec.ts
+coverage/
+
+# Ignore development files
+.env*
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Ignore documentation (not needed in production)
+docs/
+*.md
+!README.md
+
+# Ignore CI/CD files
+.github/
+.gitlab-ci.yml
+azure-pipelines.yml
+
+# Ignore Docker files (not needed inside container)
+Dockerfile*
+docker-compose*.yml
+.dockerignore

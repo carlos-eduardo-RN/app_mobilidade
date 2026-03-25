@@ -1,0 +1,60 @@
+name: Build Android APKs
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g" -Dorg.gradle.vfs.watch=false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.3"
+          channel: stable
+
+      - name: Flutter doctor
+        run: flutter doctor
+
+      # ---------------------------
+      # PASSAGEIRO
+      # ---------------------------
+
+      - name: Build Passageiro
+        working-directory: apps/passageiro/app_passageiro
+        run: |
+          flutter clean
+          flutter pub get
+          flutter build apk --release --no-tree-shake-icons
+
+      - name: Upload Passageiro APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app_passageiro
+          path: apps/passageiro/app_passageiro/build/app/outputs/flutter-apk/app-release.apk
+
+      # ---------------------------
+      # MOTORISTA
+      # ---------------------------
+
+      - name: Build Motorista
+        working-directory: apps/motorista/app_motorista
+        run: |
+          flutter clean
+          flutter pub get
+          flutter build apk --release --no-tree-shake-icons
+
+      - name: Upload Motorista APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app_motorista
+          path: apps/motorista/app_motorista/build/app/outputs/flutter-apk/app-release.apk

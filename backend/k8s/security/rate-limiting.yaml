@@ -1,0 +1,162 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: voudemoto-ingress-rate-limit
+  namespace: voudemoto
+  annotations:
+    # NGINX Ingress Controller
+    kubernetes.io/ingress.class: nginx
+    
+    # SSL/TLS
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    
+    # Rate Limiting Global
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "5"
+    
+    # Rate Limiting por IP
+    nginx.ingress.kubernetes.io/limit-connections: "10"
+    nginx.ingress.kubernetes.io/limit-rpm: "6000"
+    
+    # Rate Limiting Auth endpoints (mais restritivo)
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      location /api/auth {
+        limit_req zone=auth_limit burst=5 nodelay;
+        limit_conn conn_limit 5;
+      }
+      
+      location /api/login {
+        limit_req zone=auth_limit burst=3 nodelay;
+        limit_conn conn_limit 3;
+      }
+      
+      location /api/register {
+        limit_req zone=auth_limit burst=3 nodelay;
+        limit_conn conn_limit 3;
+      }
+    
+    # Timeouts
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    
+    # Security Headers
+    nginx.ingress.kubernetes.io/server-snippet: |
+      more_set_headers "X-Frame-Options: SAMEORIGIN";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+      more_set_headers "Permissions-Policy: geolocation=(self), camera=(), microphone=()";
+      more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload";
+    
+    # CORS (production)
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://app.voudemoto.com, https://www.voudemoto.com"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    nginx.ingress.kubernetes.io/cors-max-age: "3600"
+    
+    # Body size limit
+    nginx.ingress.kubernetes.io/proxy-body-size: "20m"
+    
+    # WAF (ModSecurity)
+    nginx.ingress.kubernetes.io/enable-modsecurity: "true"
+    nginx.ingress.kubernetes.io/enable-owasp-core-rules: "true"
+    nginx.ingress.kubernetes.io/modsecurity-snippet: |
+      SecRuleEngine On
+      SecRequestBodyAccess On
+      SecResponseBodyAccess On
+      SecRequestBodyLimit 13107200
+      SecRequestBodyNoFilesLimit 131072
+      
+      # Proteção contra SQL Injection
+      SecRule ARGS "@detectSQLi" \
+        "id:1000,phase:2,deny,status:403,msg:'SQL Injection Attack Detected'"
+      
+      # Proteção contra XSS
+      SecRule ARGS "@detectXSS" \
+        "id:1001,phase:2,deny,status:403,msg:'XSS Attack Detected'"
+      
+      # Proteção contra Path Traversal
+      SecRule ARGS "@pmFromFile /etc/nginx/modsecurity/rules/path-traversal.txt" \
+        "id:1002,phase:2,deny,status:403,msg:'Path Traversal Attack Detected'"
+      
+      # Proteção contra Command Injection
+      SecRule ARGS "@rx (?:;|\||`|>|<|&|\$\(|\$\{)" \
+        "id:1003,phase:2,deny,status:403,msg:'Command Injection Attack Detected'"
+      
+      # Bloqueio de User-Agents suspeitos
+      SecRule REQUEST_HEADERS:User-Agent "@pmFromFile /etc/nginx/modsecurity/rules/bad-user-agents.txt" \
+        "id:1004,phase:1,deny,status:403,msg:'Blocked User-Agent'"
+spec:
+  tls:
+    - hosts:
+        - api.voudemoto.com
+      secretName: voudemoto-tls
+  rules:
+    - host: api.voudemoto.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: voudemoto-backend
+                port:
+                  number: 80
+---
+# ConfigMap: Rate Limiting Zones
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-rate-limit-config
+  namespace: ingress-nginx
+data:
+  http-snippet: |
+    # Zona para API geral
+    limit_req_zone $binary_remote_addr zone=api_limit:10m rate=100r/s;
+    
+    # Zona para Auth endpoints (mais restritiva)
+    limit_req_zone $binary_remote_addr zone=auth_limit:10m rate=5r/s;
+    
+    # Zona para conexões simultâneas
+    limit_conn_zone $binary_remote_addr zone=conn_limit:10m;
+    
+    # Zona por usuário autenticado
+    limit_req_zone $http_authorization zone=user_limit:10m rate=50r/s;
+---
+# ConfigMap: ModSecurity Bad User-Agents
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: modsecurity-bad-user-agents
+  namespace: ingress-nginx
+data:
+  bad-user-agents.txt: |
+    sqlmap
+    nikto
+    nmap
+    masscan
+    scrapy
+    curl
+    wget
+    python-requests
+    go-http-client
+---
+# ConfigMap: ModSecurity Path Traversal Patterns
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: modsecurity-path-traversal
+  namespace: ingress-nginx
+data:
+  path-traversal.txt: |
+    ../
+    ..\\
+    ..%2f
+    ..%5c
+    %2e%2e%2f
+    %2e%2e%5c

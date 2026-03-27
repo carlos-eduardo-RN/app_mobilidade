@@ -72,7 +72,7 @@ class DriverController extends ChangeNotifier {
     }
 
     final response = await http.post(
-      Uri.parse('${ApiConfig.baseUrl}/api/driver/go-online'),
+      Uri.parse('${ApiConfig.baseUrl}/api/driver/status/online'),
       headers: {
         'Authorization': 'Bearer $authToken',
         'Content-Type': 'application/json',

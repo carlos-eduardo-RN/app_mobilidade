@@ -54,7 +54,7 @@ class DriverService {
   }
 
   Future<void> goOffline() async {
-    final response = await _apiClient.post('/driver/status/offline');
+    final response = await _apiClient.post('/api/driver/status/offline');
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(
         'Falha ao ficar offline: ${response.statusCode} ${response.body}',
@@ -68,7 +68,7 @@ class DriverService {
     double? heading,
   }) async {
     final response = await _apiClient.post(
-      '/driver/location',
+      '/api/driver/location',
       body: {
         'latitude': latitude,
         'longitude': longitude,
@@ -84,7 +84,7 @@ class DriverService {
   }
 
   Future<DriverEarningsSummary> getEarningsSummary() async {
-    final response = await _apiClient.get('/driver/rides');
+    final response = await _apiClient.get('/api/driver/rides');
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(
         'Falha ao obter corridas: ${response.statusCode} ${response.body}',
